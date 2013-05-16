@@ -2,6 +2,9 @@
 
 AngularJS directive that adds momentum scroll via iScroll (http://cubiq.org/iscroll-4).
 
+## Demo
+Find a demonstration on http://wzr1337.github.com
+
 ## Usage
 
 * Include `scrollable.js` or `scrollable.min.js` into your page
@@ -10,8 +13,12 @@ AngularJS directive that adds momentum scroll via iScroll (http://cubiq.org/iscr
     * the container MUST have set width and height !!
     * in order to scroll horizontally the .scroller class inside of your container MUST have set width and height !!
 * The container takes an additional attribute `parameters` according to iScroll docs. e.g. 
-   `<div id="my-cont" style="height: 400px; width: 100%;" scrollable parameters="{{ {hScrollbar : true, snap: '.row'} }}">`
-* You can ergister any of the following handlers by specifying a callback function via attribute:
+   
+    ```javascript
+    <div id="my-cont" style="height: 400px; width: 100%;" scrollable 
+    parameters="{{ {vScroll : true, snap: '.row'} }}">
+
+* You can register any of the following handlers by specifying a callback function via attribute:
     * onRefresh
     * onBeforeScrollStart
     * onScrollStart
@@ -24,4 +31,15 @@ AngularJS directive that adds momentum scroll via iScroll (http://cubiq.org/iscr
     * onZoomStart
     * onZoom
     * onZoomEnd
-    `<div id="my-cont" style="height: 400px; width: 100%;" scrollable parameters="{{ {hScrollbar : true, snap: '.row'} }}" on-scroll-move="doSometginhg()">...</div>`
+
+    ```javascript
+    <div id="my-cont" style="height: 400px; width: 100%;" scrollable
+    parameters="{{ {hScrollbar : true, snap: '.row'} }}"
+    on-scroll-move="doSometginhg()">...</div>
+
+* You can bind a variable to the curr-page-x and curr-page-y attribute. The data binding is bidirectional, so that you can scroll programatically as well as being notified on page change.
+
+  ```javascript
+    <div id="my-cont" style="height: 400px; width: 100%;" scrollable
+    parameters="{{ {vScroll : true, snap: '.row'} }}"
+    curr-page-y="myPageY">...</div>
