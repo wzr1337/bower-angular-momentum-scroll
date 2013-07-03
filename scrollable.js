@@ -1233,7 +1233,6 @@ var scrollable = function($timeout) {
                 if (angular.isDefined(scope.isMinX)) {
                   scope.isMinX = (scroll.x <= scroll.minScrollX);
                 }
-                console.log(scope);
               });
             scope.onScrollEnd({pageX: this.currPageX,
                 pageY: this.currPageY,
