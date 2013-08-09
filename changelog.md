@@ -1,5 +1,8 @@
 # Change-Log
 
+## 2013-08-09 v0.4.5
+Add support for refresh on orientation change (mobile usage)
+
 ## 2013-06-0 9v0.4.4
 Add isMaxX/isMinX/isMaxY/isMinY as an interface to the final TOP and bottoms positions.
 
