@@ -1,5 +1,8 @@
 # Change-Log
 
+## 2013-08-29 v0.4.7
+fixed horizontal scrolling for mobile devices
+
 ## 2013-08-27 v0.4.6
 Fixed horizontal scroll (css)
 
