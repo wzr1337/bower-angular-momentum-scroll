@@ -1,5 +1,12 @@
 # Change-Log
 
+## 2013-11-30
+fixed reinitialization on DOM extension
+fixed accessing undefined scope vars
+
+## 2013-10-31
+fixed horizontal scroll for new iScroll parameter scrollX 
+
 ## 2013-10-30
 Fixed regular scroll
 
