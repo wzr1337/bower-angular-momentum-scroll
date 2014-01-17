@@ -1,5 +1,8 @@
 # Change-Log
 
+## 2014-01-17
+fixed horizontal scroll css
+
 ## 2013-12-18
 fixed $destroy
 
