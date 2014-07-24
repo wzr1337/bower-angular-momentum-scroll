@@ -1,4 +1,4 @@
-/*! iScroll v5.0.9 ~ (c) 2008-2013 Matteo Spinelli ~ http://cubiq.org/license */
+/*! iScroll v5.1.2 ~ (c) 2008-2014 Matteo Spinelli ~ http://cubiq.org/license */
 (function (window, document, Math) {
 var rAF = window.requestAnimationFrame	||
 	window.webkitRequestAnimationFrame	||
@@ -47,12 +47,19 @@ var utils = (function () {
 		el.removeEventListener(type, fn, !!capture);
 	};
 
-	me.momentum = function (current, start, time, lowerMargin, wrapperSize) {
+	me.prefixPointerEvent = function (pointerEvent) {
+		return window.MSPointerEvent ? 
+			'MSPointer' + pointerEvent.charAt(9).toUpperCase() + pointerEvent.substr(10):
+			pointerEvent;
+	};
+
+	me.momentum = function (current, start, time, lowerMargin, wrapperSize, deceleration) {
 		var distance = current - start,
 			speed = Math.abs(distance) / time,
 			destination,
-			duration,
-			deceleration = 0.0006;
+			duration;
+
+		deceleration = deceleration === undefined ? 0.0006 : deceleration;
 
 		destination = current + ( speed * speed ) / ( 2 * deceleration ) * ( distance < 0 ? -1 : 1 );
 		duration = speed / deceleration;
@@ -79,12 +86,12 @@ var utils = (function () {
 		hasTransform: _transform !== false,
 		hasPerspective: _prefixStyle('perspective') in _elementStyle,
 		hasTouch: 'ontouchstart' in window,
-		hasPointer: navigator.msPointerEnabled,
+		hasPointer: window.PointerEvent || window.MSPointerEvent, // IE10 is prefixed
 		hasTransition: _prefixStyle('transition') in _elementStyle
 	});
 
 	// This should find all Android browsers lower than build 535.19 (both stock browser and webview)
-	me.isBadAndroid = /Android/.test(window.navigator.appVersion) && !(/Chrome\/\d/.test(window.navigator.appVersion));
+	me.isBadAndroid = /Android /.test(window.navigator.appVersion) && !(/Chrome\/\d/.test(window.navigator.appVersion));
 
 	me.extend(me.style = {}, {
 		transform: _transform,
@@ -154,6 +161,10 @@ var utils = (function () {
 		mousemove: 2,
 		mouseup: 2,
 
+		pointerdown: 3,
+		pointermove: 3,
+		pointerup: 3,
+
 		MSPointerDown: 3,
 		MSPointerMove: 3,
 		MSPointerUp: 3
@@ -219,7 +230,7 @@ var utils = (function () {
 		var target = e.target,
 			ev;
 
-		if (target.tagName != 'SELECT' && target.tagName != 'INPUT' && target.tagName != 'TEXTAREA') {
+		if ( !(/(SELECT|INPUT|TEXTAREA)/i).test(target.tagName) ) {
 			ev = document.createEvent('MouseEvents');
 			ev.initMouseEvent('click', true, true, e.view, 1,
 				target.screenX, target.screenY, target.clientX, target.clientY,
@@ -241,7 +252,7 @@ function IScroll (el, options) {
 
 	this.options = {
 
-		resizeIndicator: true,
+		resizeScrollbars: true,
 
 		mouseWheelSpeed: 20,
 
@@ -321,7 +332,7 @@ function IScroll (el, options) {
 }
 
 IScroll.prototype = {
-	version: '5.0.9',
+	version: '5.1.2',
 
 	_init: function () {
 		this._initEvents();
@@ -564,8 +575,8 @@ IScroll.prototype = {
 
 		// start momentum animation if needed
 		if ( this.options.momentum && duration < 300 ) {
-			momentumX = this.hasHorizontalScroll ? utils.momentum(this.x, this.startX, duration, this.maxScrollX, this.options.bounce ? this.wrapperWidth : 0) : { destination: newX, duration: 0 };
-			momentumY = this.hasVerticalScroll ? utils.momentum(this.y, this.startY, duration, this.maxScrollY, this.options.bounce ? this.wrapperHeight : 0) : { destination: newY, duration: 0 };
+			momentumX = this.hasHorizontalScroll ? utils.momentum(this.x, this.startX, duration, this.maxScrollX, this.options.bounce ? this.wrapperWidth : 0, this.options.deceleration) : { destination: newX, duration: 0 };
+			momentumY = this.hasVerticalScroll ? utils.momentum(this.y, this.startY, duration, this.maxScrollY, this.options.bounce ? this.wrapperHeight : 0, this.options.deceleration) : { destination: newY, duration: 0 };
 			newX = momentumX.destination;
 			newY = momentumY.destination;
 			time = Math.max(momentumX.duration, momentumY.duration);
@@ -660,10 +671,10 @@ IScroll.prototype = {
 		this.scrollerWidth	= this.scroller.offsetWidth;
 		this.scrollerHeight	= this.scroller.offsetHeight;
 
-/* REPLACE END: refresh */
-
 		this.maxScrollX		= this.wrapperWidth - this.scrollerWidth;
 		this.maxScrollY		= this.wrapperHeight - this.scrollerHeight;
+
+/* REPLACE END: refresh */
 
 		this.hasHorizontalScroll	= this.options.scrollX && this.maxScrollX < 0;
 		this.hasVerticalScroll		= this.options.scrollY && this.maxScrollY < 0;
@@ -700,6 +711,18 @@ IScroll.prototype = {
 		this._events[type].push(fn);
 	},
 
+	off: function (type, fn) {
+		if ( !this._events[type] ) {
+			return;
+		}
+
+		var index = this._events[type].indexOf(fn);
+
+		if ( index > -1 ) {
+			this._events[type].splice(index, 1);
+		}
+	},
+
 	_execEvent: function (type) {
 		if ( !this._events[type] ) {
 			return;
@@ -713,7 +736,7 @@ IScroll.prototype = {
 		}
 
 		for ( ; i < l; i++ ) {
-			this._events[type][i].call(this);
+			this._events[type][i].apply(this, [].slice.call(arguments, 1));
 		}
 	},
 
@@ -856,10 +879,10 @@ IScroll.prototype = {
 		}
 
 		if ( utils.hasPointer && !this.options.disablePointer ) {
-			eventType(this.wrapper, 'MSPointerDown', this);
-			eventType(target, 'MSPointerMove', this);
-			eventType(target, 'MSPointerCancel', this);
-			eventType(target, 'MSPointerUp', this);
+			eventType(this.wrapper, utils.prefixPointerEvent('pointerdown'), this);
+			eventType(target, utils.prefixPointerEvent('pointermove'), this);
+			eventType(target, utils.prefixPointerEvent('pointercancel'), this);
+			eventType(target, utils.prefixPointerEvent('pointerup'), this);
 		}
 
 		if ( utils.hasTouch && !this.options.disableTouch ) {
@@ -893,7 +916,6 @@ IScroll.prototype = {
 
 	_initIndicators: function () {
 		var interactive = this.options.interactiveScrollbars,
-			defaultScrollbars = typeof this.options.scrollbars != 'object',
 			customStyle = typeof this.options.scrollbars != 'string',
 			indicators = [],
 			indicator;
@@ -910,7 +932,7 @@ IScroll.prototype = {
 					interactive: interactive,
 					defaultScrollbars: true,
 					customStyle: customStyle,
-					resize: this.options.resizeIndicator,
+					resize: this.options.resizeScrollbars,
 					shrink: this.options.shrinkScrollbars,
 					fade: this.options.fadeScrollbars,
 					listenX: false
@@ -927,7 +949,7 @@ IScroll.prototype = {
 					interactive: interactive,
 					defaultScrollbars: true,
 					customStyle: customStyle,
-					resize: this.options.resizeIndicator,
+					resize: this.options.resizeScrollbars,
 					shrink: this.options.shrinkScrollbars,
 					fade: this.options.fadeScrollbars,
 					listenY: false
@@ -1504,19 +1526,23 @@ IScroll.prototype = {
 	handleEvent: function (e) {
 		switch ( e.type ) {
 			case 'touchstart':
+			case 'pointerdown':
 			case 'MSPointerDown':
 			case 'mousedown':
 				this._start(e);
 				break;
 			case 'touchmove':
+			case 'pointermove':
 			case 'MSPointerMove':
 			case 'mousemove':
 				this._move(e);
 				break;
 			case 'touchend':
+			case 'pointerup':
 			case 'MSPointerUp':
 			case 'mouseup':
 			case 'touchcancel':
+			case 'pointercancel':
 			case 'MSPointerCancel':
 			case 'mousecancel':
 				this._end(e);
@@ -1618,8 +1644,8 @@ function Indicator (scroller, options) {
 			utils.addEvent(window, 'touchend', this);
 		}
 		if ( !this.options.disablePointer ) {
-			utils.addEvent(this.indicator, 'MSPointerDown', this);
-			utils.addEvent(window, 'MSPointerUp', this);
+			utils.addEvent(this.indicator, utils.prefixPointerEvent('pointerdown'), this);
+			utils.addEvent(window, utils.prefixPointerEvent('pointerup'), this);
 		}
 		if ( !this.options.disableMouse ) {
 			utils.addEvent(this.indicator, 'mousedown', this);
@@ -1638,19 +1664,23 @@ Indicator.prototype = {
 	handleEvent: function (e) {
 		switch ( e.type ) {
 			case 'touchstart':
+			case 'pointerdown':
 			case 'MSPointerDown':
 			case 'mousedown':
 				this._start(e);
 				break;
 			case 'touchmove':
+			case 'pointermove':
 			case 'MSPointerMove':
 			case 'mousemove':
 				this._move(e);
 				break;
 			case 'touchend':
+			case 'pointerup':
 			case 'MSPointerUp':
 			case 'mouseup':
 			case 'touchcancel':
+			case 'pointercancel':
 			case 'MSPointerCancel':
 			case 'mousecancel':
 				this._end(e);
@@ -1661,15 +1691,15 @@ Indicator.prototype = {
 	destroy: function () {
 		if ( this.options.interactive ) {
 			utils.removeEvent(this.indicator, 'touchstart', this);
-			utils.removeEvent(this.indicator, 'MSPointerDown', this);
+			utils.removeEvent(this.indicator, utils.prefixPointerEvent('pointerdown'), this);
 			utils.removeEvent(this.indicator, 'mousedown', this);
 
 			utils.removeEvent(window, 'touchmove', this);
-			utils.removeEvent(window, 'MSPointerMove', this);
+			utils.removeEvent(window, utils.prefixPointerEvent('pointermove'), this);
 			utils.removeEvent(window, 'mousemove', this);
 
 			utils.removeEvent(window, 'touchend', this);
-			utils.removeEvent(window, 'MSPointerUp', this);
+			utils.removeEvent(window, utils.prefixPointerEvent('pointerup'), this);
 			utils.removeEvent(window, 'mouseup', this);
 		}
 
@@ -1697,7 +1727,7 @@ Indicator.prototype = {
 			utils.addEvent(window, 'touchmove', this);
 		}
 		if ( !this.options.disablePointer ) {
-			utils.addEvent(window, 'MSPointerMove', this);
+			utils.addEvent(window, utils.prefixPointerEvent('pointermove'), this);
 		}
 		if ( !this.options.disableMouse ) {
 			utils.addEvent(window, 'mousemove', this);
@@ -1746,7 +1776,7 @@ Indicator.prototype = {
 		e.stopPropagation();
 
 		utils.removeEvent(window, 'touchmove', this);
-		utils.removeEvent(window, 'MSPointerMove', this);
+		utils.removeEvent(window, utils.prefixPointerEvent('pointermove'), this);
 		utils.removeEvent(window, 'mousemove', this);
 
 		if ( this.scroller.options.snap ) {
@@ -1974,6 +2004,14 @@ if ( typeof module != 'undefined' && module.exports ) {
 }
 
 })(window, document, Math);
+/**
+ * @license angular-momentum-scroll
+ * (c) 2012-2014 Patrick Bartsch
+ * Momentum scroll for AngularJS based on iScroll
+ * License: MIT
+ */
+(function(angular) {
+
 'use strict';
 
 angular.module('angular-momentum-scroll', []);
@@ -2005,8 +2043,8 @@ angular.module('angular-momentum-scroll', []);
  *      parameters="{{ { hScroll: true, hScrollbar: false, snap: true,
  *      momentum: false} }}"">...</div>
  */
-angular.module('angular-momentum-scroll').directive('scrollable', ['$timeout',
-  '$window', '$document', function($timeout, $window, $document) {
+angular.module('angular-momentum-scroll').directive('scrollable',
+  ['$timeout', '$window', '$document', function($timeout, $window, $document) {
 
     return {
       restrict : 'AE',
@@ -2211,3 +2249,5 @@ angular.module('angular-momentum-scroll').directive('scrollable', ['$timeout',
       }
     };
   }]);
+
+})(angular);
